@@ -264,8 +264,13 @@ code {
 
 .card-thumb {
   aspect-ratio: 4 / 3;
+  min-height: 180px; /* fallback so the image box always has height */
+  background-color: var(--line);
   background-size: cover;
   background-position: center;
+}
+@supports not (aspect-ratio: 1 / 1) {
+  .card-thumb { height: 190px; }
 }
 
 .card-body { padding: 16px 18px 20px; }
@@ -329,10 +334,15 @@ code {
 
 .hero-portrait {
   aspect-ratio: 4 / 5;
+  min-height: 320px; /* fallback so the portrait always has height on every browser */
   border-radius: var(--radius);
+  background-color: var(--line);
   background-size: cover;
   background-position: center;
   box-shadow: var(--shadow);
+}
+@supports not (aspect-ratio: 1 / 1) {
+  .hero-portrait { height: 375px; }
 }
 .portrait-credit {
   font-size: .72rem;
