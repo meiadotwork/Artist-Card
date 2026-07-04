@@ -64,6 +64,7 @@ window.PORTRAITS = {
   "rafael-lozano-hemmer": "https://commons.wikimedia.org/wiki/Special:FilePath/Rafael_Lozano-Hemmer_Portrait.jpg?width=600",
   "rashid-johnson": "https://commons.wikimedia.org/wiki/Special:FilePath/20081202_Rashid_Johnson_at_the_Rubell_Family_Collection.jpg?width=600",
   "refik-anadol": "https://commons.wikimedia.org/wiki/Special:FilePath/Dubai_Future_Forum_2024_-_Refik_Anadol.jpg?width=600",
+  "sarah-morris": "https://web.archive.org/web/20260109214756id_/https://awarewomenartists.com/wp-content/uploads/2017/05/portrait-sarah-morris-aware-aware-women-artists-artistes-femmes.jpg",
   "shirin-neshat": "https://commons.wikimedia.org/wiki/Special:FilePath/Viennale_talk_%282%29%2C_Shirin_Neshat.jpg?width=600",
   "subodh-gupta": "https://commons.wikimedia.org/wiki/Special:FilePath/Subodh_Gupta%2C_2020.jpg?width=600",
   "takashi-murakami": "https://commons.wikimedia.org/wiki/Special:FilePath/Takashi_Murakami_at_Versailles_Sept._2010_%28crop%29.jpg?width=600",
