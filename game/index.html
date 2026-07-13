@@ -373,7 +373,7 @@
 <div id="setup">
 <div style="font-size:clamp(36px,11vw,68px);font-weight:bold;letter-spacing:8px;line-height:1;text-align:center">CRIMINAL</div>
 <div style="font-size:clamp(16px,5vw,30px);font-weight:bold;letter-spacing:12px;text-align:center;line-height:1.1">TERMINAL</div>
-<div style="font-size:clamp(10px,2.6vw,13px);letter-spacing:2px;text-align:center;opacity:.6;margin:4px 0 10px">// crime terminal v8.0</div>
+<div style="font-size:clamp(10px,2.6vw,13px);letter-spacing:2px;text-align:center;opacity:.6;margin:4px 0 10px">// crime terminal v8.1</div>
 <div id="setupStage"></div>
 </div>
 
@@ -651,6 +651,22 @@ function beep(freq,dur,vol,when){
     o.connect(g);g.connect(_ac.destination);o.start(t);o.stop(t+(dur||.06)+.02);
   }catch(e){}
 }
+function noiseBurst(dur,vol,when,cutoff){ // filtered white noise: gunshots, slams
+  if(!SND)return;
+  try{
+    _ac=_ac||new (window.AudioContext||window.webkitAudioContext)();
+    if(_ac.state==="suspended")_ac.resume();
+    const t=_ac.currentTime+(when||0);
+    const n=Math.floor(_ac.sampleRate*(dur||.15));
+    const buf=_ac.createBuffer(1,n,_ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+    const s=_ac.createBufferSource();s.buffer=buf;
+    const f=_ac.createBiquadFilter();f.type="lowpass";f.frequency.value=cutoff||900;
+    const g=_ac.createGain();g.gain.setValueAtTime(vol||.15,t);g.gain.exponentialRampToValueAtTime(.0001,t+(dur||.15));
+    s.connect(f);f.connect(g);g.connect(_ac.destination);s.start(t);s.stop(t+(dur||.15)+.02);
+  }catch(e){}
+}
 const SFX={
   tick:()=>beep(880,.03,.025),
   step:()=>beep(440,.04,.02),
@@ -658,7 +674,11 @@ const SFX={
   good:()=>{beep(523,.07,.045);beep(784,.09,.045,.08);},
   bad:()=>{beep(220,.12,.05);beep(165,.16,.05,.1);},
   siren:()=>{beep(700,.14,.045);beep(500,.14,.045,.15);beep(700,.14,.045,.3);},
-  death:()=>{beep(196,.3,.06);beep(131,.5,.06,.25);},
+  raid:()=>{for(let i=0;i<3;i++){beep(880,.18,.05,i*.36);beep(660,.18,.05,i*.36+.18);}}, // wailing police siren
+  cash:()=>{beep(1245,.05,.045);beep(1568,.12,.05,.06);},                                 // register cha-ching
+  shots:()=>{noiseBurst(.14,.2,0,1200);noiseBurst(.14,.2,.22,1000);noiseBurst(.18,.22,.44,900);}, // firefight
+  clang:()=>{beep(120,.3,.08);noiseBurst(.25,.12,.02,400);},                              // cell door slams
+  flatline:()=>{beep(1000,.09,.05);beep(1000,.09,.05,.4);beep(1000,.09,.05,.8);beep(1000,1.3,.055,1.2);}, // heart monitor
   win:()=>{[523,659,784,1047].forEach((f,i)=>beep(f,.12,.045,i*.13));},
 };
 function toggleSnd(){ SND=!SND; try{localStorage.setItem("ct_snd",SND?"on":"off");}catch(e){} const b=document.getElementById("sndBtn"); if(b)b.textContent=SND?"[ SND ]":"[ MUTE ]"; if(SND)SFX.card(); }
@@ -854,7 +874,7 @@ function openManual(){ window.speechSynthesis&&window.speechSynthesis.cancel(); 
   \u25B8 Broke + hurt \u2192 HOSPITAL. Three visits and you're out.<br>
   \u25B8 POKER NIGHT pays $1M/yr and collects rivals' bets.<br>
   \u25B8 Can't pay a debt? Your turf, businesses, then soldiers get sold to cover it.<br>
-  \u25B8 COMMIT CRIME (3/year, before you roll): pick your job — bigger score, bigger heat.<br>
+  \u25B8 COMMIT CRIME (3/year, before you roll): a random heist, hit or drug run — you take what the streets give you.<br>
   \u25B8 Land on HOSPITAL while hurt? Pay ${fmtK(TREAT_COST)} to clear a visit.<br>
   \u25B8 The game saves itself every turn — close the tab, come back later.<br><br>
   Tap [ READ ] on any card to hear it out loud. [ SND ] toggles sound.
@@ -984,7 +1004,7 @@ function collectOne(p,idx){
   if(!p.owns.has(idx))return 0;
   const cell=OUTER[idx];const unit=cell.incomeBase||cell.price||cell.income||0;
   const inc=unit*p.owns.get(idx);
-  if(inc>0){p.cash+=inc;log(p.name+" collects "+fmtK(inc)+" — a year's profit from "+cell.t+".","good");}
+  if(inc>0){p.cash+=inc;SFX.cash();log(p.name+" collects "+fmtK(inc)+" — a year's profit from "+cell.t+".","good");}
   return inc;
 }
 function cellUnit(idx){const c=OUTER[idx];return c.incomeBase||c.price||c.income||0;}
@@ -1263,7 +1283,12 @@ function addWorkerAnytime(idx,per){const p=S.players[S.cur];if(p.cash<per)return
 function commitCrime(){
   const p=S.players[S.cur];
   if(p.ai||!p.alive||S.over||S.rolled||p.ring!=="outer"||p.inJail||p.crimeOps<=0)return;
-  heistPicker();               // pick the job level; walking away costs nothing
+  p.crimeOps--;
+  log(p.name+" goes looking for a score ("+p.crimeOps+" crime chances left).","warn");
+  S.rolled=true;               // this is your action for the turn
+  updateControls();
+  const jobs=["heist","hitman","drug"];               // the streets decide what the job is
+  drawStory(jobs[Math.floor(Math.random()*jobs.length)]);
 }
 function offerHire(){
   const p=S.players[S.cur];
@@ -1363,6 +1388,7 @@ function atkPick(d){const p=S.players[S.cur];if(d==='max')p._atkPick=p.crew;else
 function confirmAttack(){const p=S.players[S.cur];const t=p._atkTarget;const n=p._atkPick||1;p._atkPick=undefined;p._atkTarget=undefined;resolveAttack(p,S.players[t.oid],t.idx,n);}
 function resolveAttack(p,o,idx,atk){
   closeModal();
+  SFX.shots();
   const def=o.owns.get(idx)||0;
   atk=Math.max(1,Math.min(atk||p.crew,p.crew));
   let title,body;
@@ -1390,62 +1416,12 @@ function resolveAttack(p,o,idx,atk){
 }
 
 /* ===== STORY CARDS ===== */
-/* ===== HEIST LEVEL PICKER (player chooses risk) ===== */
-const HEIST_LEVELS={
-  EASY:  {payouts:[1000], jailChance:0.55, arr:[6,8], label:"EASY · big score, high heat"},
-  MEDIUM:{payouts:[250],  jailChance:0.40, arr:[5,10],label:"MEDIUM · solid score"},
-  HARD:  {payouts:[100],  jailChance:0.25, arr:[3,4], label:"HARD · low take, low risk"},
-  REAL:  {payouts:[0],    jailChance:0.15, arr:[2,5], label:"REAL · nothing, but you tried"},
-};
-const HEIST_FLAVOR={
-  EASY:["Bank vault, months of planning. The alarm never made a sound.","Casino count room. You were in the ceiling before anyone blinked."],
-  MEDIUM:["Jewelry smash-and-grab. Cases empty in ninety seconds.","Armored truck at the blind corner. Two minutes of chaos, doors open."],
-  HARD:["ATM ripped out with a stolen truck. Cracked in a field at dawn.","Corner store register and the safe under the counter."],
-  REAL:["Dye pack blew. Alarm screamed. You ran with a story and nothing else.","The whole thing was bait. Out clean, empty-handed."],
-};
-function heistPicker(){
-  const p=S.players[S.cur];
-  if(p.ai){ // AI picks by cash: rich=go big
-    const lvl = p.cash>400?"EASY":p.cash>150?"MEDIUM":"HARD";
-    runHeist(lvl); return;
-  }
-  const el=document.getElementById("cardEl");
-  const rows=Object.entries(HEIST_LEVELS).map(([k,v])=>
-    `<button onclick="runHeist('${k}')" style="display:block;width:100%;margin:4px 0;text-align:left">[ ${k} · ${fmtK(v.payouts[0])} ] ${v.label}</button>`).join("");
-  el.innerHTML=`<div class="lbl" style="background:${p.color}">HEIST · PICK YOUR JOB</div>
-    <div class="art">$$$</div><div class="ttl">Choose the level</div>
-    <div class="sub">Bigger score = bigger heat. Pick your risk.</div>
-    <div class="go" style="flex-direction:column">${rows}<button onclick="closeModal();finish()">[ WALK AWAY ]</button></div>
-    ${statusBar()}`;
-  openModal();
-}
-function runHeist(lvl){
-  const p=S.players[S.cur];const L=HEIST_LEVELS[lvl];closeModal();
-  p.crimeOps--;
-  log(p.name+" goes looking for a score ("+p.crimeOps+" crime chances left).","warn");
-  S.rolled=true;               // this is your action for the turn
-  updateControls();
-  const cut=L.payouts[0];
-  const flav=HEIST_FLAVOR[lvl][Math.floor(Math.random()*HEIST_FLAVOR[lvl].length)];
-  const arrYears=L.arr[Math.floor(Math.random()*L.arr.length)];
-  p.crimes.push({name:CHARGES.heist[Math.floor(Math.random()*CHARGES.heist.length)],years:arrYears,lvl});
-  if(cut>0){p.cash+=cut;log(p.name+" pulls a "+lvl+" heist: +"+fmtK(cut)+".","good");}
-  else log(p.name+" pulls a "+lvl+" heist: nothing.","warn");
-  // risk of getting caught
-  if(Math.random()<L.jailChance){
-    log("The job went hot!","bad");
-    if(!crewSave(p,"arrest")){ p._pendingYears=arrYears; arrestFlow(p); return; }
-  } else log(p.name+" gets away clean.","good");
-  render();finish();
-}
-
-/* ===== HEIST LEVEL PICKER end ===== */
 function drawStory(deck){
   const p=S.players[S.cur];const card=draw(deck);
   if(deck==="raid" && card.raidArr){ card._sLoss = card.takesAll ? "all" : (1+Math.floor(Math.random()*10)); }
   document.getElementById("cardEl")._card=card;document.getElementById("cardEl")._deck=deck;
   renderStoryCard(card,deck,p.ai);
-  SFX.card();
+  if(deck==="raid")SFX.raid(); else SFX.card();
   openModal();
   scrollToToken();
   aiAutoApply(card);
@@ -1525,7 +1501,7 @@ function applyCard(){
       const fine=Math.max(Math.abs(c.cut), Math.round(netWorth(p)*pct));
       amt=-Math.min(fine, Math.max(0,netWorth(p)));
     }
-    p.cash+=amt;log(p.name+(amt>0?" gains $":" loses $")+Math.abs(amt)+"K"+(deck==="court"&&amt<0?" (fine)":"")+".",amt>0?"good":"warn");
+    p.cash+=amt;if(amt>0)SFX.cash();log(p.name+(amt>0?" gains $":" loses $")+Math.abs(amt)+"K"+(deck==="court"&&amt<0?" (fine)":"")+".",amt>0?"good":"warn");
     if(deck==="court"&&p.cash<0){ settleDebts(p); if(p.cash<0){p.cash=0;log("The court cleans "+p.name+" out completely.","bad");} }
   }
   if(c.packs){p.packs=Math.max(0,p.packs+c.packs);
@@ -1649,7 +1625,7 @@ function drawCourt(){ const p=S.players[S.cur]; log(p.name+"'s court day.","warn
   if(p._escapedYears){ p.sentence+=p._escapedYears; log(p.name+" still owes "+p._escapedYears+"y from the last escape — added on top.","bad"); p._escapedYears=0; }
   const card=draw("court"); document.getElementById("cardEl")._card=card;document.getElementById("cardEl")._deck="court";
   renderStoryCard(card,"court",p.ai); SFX.card(); openModal(); aiAutoApply(card); }
-function sendToPrison(p){p.inJail=false;p.ring="inner";p.pos=0;log(p.name+" enters PRISON. Serve "+p.sentence+"y (1 lap = 1 year). Packs: "+p.packs,"warn");}
+function sendToPrison(p){SFX.clang();p.inJail=false;p.ring="inner";p.pos=0;log(p.name+" enters PRISON. Serve "+p.sentence+"y (1 lap = 1 year). Packs: "+p.packs,"warn");}
 function releaseFromPrison(p){p.ring="outer";p.pos=30;p.packs=0;log(p.name+" walks out of prison.","good");render();finish();}
 
 /* ===== HOSPITAL (death only here) ===== */
@@ -1709,7 +1685,7 @@ function leaveHospital(cost,oc,settle){cost=cost||0;settle=settle||0;const p=S.p
 
 /* ===== DEATH / WIN ===== */
 function killPlayer(p){
-  SFX.death();
+  SFX.flatline();
   p.alive=false;p.diedAt=p.age;log(p.name+" DIES for good at "+p.age+". OUT.","bad");
   render();
   showDeathAnnounce(p); // big announcement → RIP memorial
@@ -2034,7 +2010,7 @@ function closeModal(){document.getElementById("modal").classList.remove("on");tr
   }
   function startLogin(){
     out.innerHTML="";
-    nl("CRIMINAL TERMINAL (R) v8.0");
+    nl("CRIMINAL TERMINAL (R) v8.1");
     nl("(C) 1987 SATAN SYSTEMS CORP. ALL RIGHTS RESERVED.");
     nl("");
     nl("RESTRICTED SYSTEM - AUTHORIZED USERS ONLY.");
