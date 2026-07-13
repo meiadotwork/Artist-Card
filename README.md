@@ -120,3 +120,10 @@ except `id` and `name`; empty sections are simply hidden.
 
 The dataset ships with three fully populated sample artists so you can see every
 section in action.
+
+## Bonus: CRIMINAL TERMINAL (`game/`)
+
+`game/index.html` is a self-contained retro DOS crime-life board game — no build,
+no dependencies, one file. Open it directly in a browser (access code: `666`).
+Outer ring is the street, inner ring is prison; heists, arrests, court, hospital —
+last boss standing wins. The game auto-saves every turn to localStorage.
